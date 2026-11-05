@@ -110,25 +110,38 @@ def ruff_scores(root: Path) -> list[tuple[str, int, str, int]]:
 
 def python_files(root: Path) -> list[str]:
     """The files Ruff checks, so excludes in the project's Ruff config apply here too."""
-    completed = subprocess.run(["ruff", "check", ".", "--show-files"], cwd=root, capture_output=True, text=True)
+    command = ["ruff", "check", ".", "--show-files"]
+    completed = subprocess.run(command, cwd=root, capture_output=True, text=True)
+    if completed.returncode != 0:
+        sys.exit(f"error: `{' '.join(command)}` in {root} failed:\n{completed.stderr}")
+    base = root.resolve()
     files = []
     for line in completed.stdout.splitlines():
+        if not line.strip():
+            continue
         path = Path(line.strip())
-        if path.suffix in (".py", ".pyi") and path.is_absolute():
-            try:
-                files.append(path.relative_to(root.resolve()).as_posix())
-            except ValueError:
-                continue
+        path = (path if path.is_absolute() else base / path).resolve()
+        if path.suffix in (".py", ".pyi") and path.is_relative_to(base):
+            files.append(path.relative_to(base).as_posix())
     return files
+
+
+def annotation_path(root: Path, file: str) -> str:
+    """The file's path relative to the repository workspace, which is how GitHub attaches annotations."""
+    path = (root / file).resolve()
+    workspace = os.environ.get("GITHUB_WORKSPACE")
+    if workspace and path.is_relative_to(Path(workspace).resolve()):
+        return path.relative_to(Path(workspace).resolve()).as_posix()
+    return path.as_posix()
 
 
 def report(findings: list[Finding], root: Path, annotate: bool) -> None:
     for finding in findings:
-        path = (root / finding.file).as_posix()
         if annotate:
             level = "error" if finding.fails else "notice"
-            print(f"::{level} file={path},line={finding.line}::{finding.message}")
+            print(f"::{level} file={annotation_path(root, finding.file)},line={finding.line}::{finding.message}")
         else:
+            path = (root / finding.file).as_posix()
             label = "FAIL" if finding.fails else "note"
             print(f"{label}  {path}:{finding.line}  {finding.message}")
 

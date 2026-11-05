@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts.check_complexity_caps import Marker, check, find_markers, main
+from scripts import check_complexity_caps as caps
+from scripts.check_complexity_caps import Finding, Marker, check, find_markers, main
 
 LIMIT = 20
 
@@ -87,3 +88,26 @@ def test_runs_as_a_script(tmp_path):
     completed = subprocess.run([sys.executable, str(script), str(tmp_path)], capture_output=True, text=True)
     assert completed.returncode == 0, completed.stderr
     assert "0 exempted function(s) checked, 0 failure(s)." in completed.stdout
+
+
+def test_annotations_use_paths_relative_to_the_workspace(tmp_path, monkeypatch, capsys):
+    backend = tmp_path / "backend"
+    (backend / "app").mkdir(parents=True)
+    (backend / "app" / "editor.py").write_text("")
+    monkeypatch.setenv("GITHUB_WORKSPACE", str(tmp_path))
+    caps.report([Finding("app/editor.py", 360, "too complex", True)], backend, annotate=True)
+    assert capsys.readouterr().out.startswith("::error file=backend/app/editor.py,line=360::")
+
+
+def test_relative_show_files_output_is_kept(tmp_path, monkeypatch):
+    (tmp_path / "app.py").write_text("")
+    completed = subprocess.CompletedProcess([], 0, stdout="app.py\nREADME.md\n", stderr="")
+    monkeypatch.setattr(caps.subprocess, "run", lambda *a, **k: completed)
+    assert caps.python_files(tmp_path) == ["app.py"]
+
+
+def test_file_discovery_failure_stops_the_check(tmp_path, monkeypatch):
+    completed = subprocess.CompletedProcess([], 2, stdout="", stderr="ruff: bad config")
+    monkeypatch.setattr(caps.subprocess, "run", lambda *a, **k: completed)
+    with pytest.raises(SystemExit, match="bad config"):
+        caps.python_files(tmp_path)
