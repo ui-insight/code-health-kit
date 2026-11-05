@@ -1,0 +1,33 @@
+name: Code health complexity caps
+description: >
+  Fail when a Python function exempted from the complexity limit with
+  `# noqa: C901` has no `complexity-cap:`, has grown past its cap, or no longer
+  needs the exemption. Scores come from Ruff.
+inputs:
+  working-directory:
+    description: Directory holding the Python project's pyproject.toml (where Ruff runs).
+    default: "."
+  limit:
+    description: The project's Ruff max-complexity.
+    default: "20"
+  ruff-version:
+    description: >
+      Ruff version to install when Ruff isn't already on PATH. Projects that
+      install their own Ruff earlier in the job get that version, so CI scores
+      match what developers see.
+    default: "0.17.3"
+runs:
+  using: composite
+  steps:
+    - name: Check complexity caps
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LIMIT: ${{ inputs.limit }}
+        RUFF_VERSION: ${{ inputs.ruff-version }}
+      run: |
+        if ! command -v ruff >/dev/null 2>&1; then
+          python3 -m pip install --quiet "ruff==$RUFF_VERSION"
+        fi
+        echo "Using $(ruff --version)"
+        python3 "$GITHUB_ACTION_PATH/../../scripts/check_complexity_caps.py" . --limit "$LIMIT"

@@ -25,6 +25,7 @@ jobs:
       # The kit's own actions, used on this repository.
       - uses: ./actions/manifest
       - uses: ./actions/secret-scan
+      - uses: ./actions/complexity-caps
       - uses: ./actions/coverage
         with:
           component: scripts
