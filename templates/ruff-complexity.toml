@@ -5,8 +5,13 @@
 select = ["E4", "E7", "E9", "F", "C901"]
 
 [tool.ruff.lint.mccabe]
-# Complexity ratchet: new code stays at 20 or below. Ruff has no per-file
-# limit, so existing functions over 20 carry `# noqa: C901` on their def line
-# (scripts/bootstrap_caps.py lists them). Remove a marker once its function is
-# refactored under the limit.
+# Complexity ratchet: new code stays at 20 or below. Ruff has no per-function
+# limit, so each existing function over 20 carries a marker with a ceiling at
+# its current score on its def line:
+#
+#     def post_analyze(  # noqa: C901  complexity-cap: 48
+#
+# scripts/bootstrap_caps.py prints the markers, and the complexity-caps action
+# fails CI when a function goes over its cap. Lower a cap when a refactor
+# lowers the score; remove the marker once the function is under the limit.
 max-complexity = 20

@@ -9,8 +9,10 @@ worse.
     python3 scripts/bootstrap_caps.py --python backend --eslint frontend
 
 --python DIR   runs `ruff check` (Ruff must be installed) in DIR and lists the
-               functions over the limit, which need `# noqa: C901` because
-               Ruff has no per-file limit.
+               functions over the limit. Each needs `# noqa: C901` with a
+               `complexity-cap:` at today's score, because Ruff has no
+               per-function limit (scripts/check_complexity_caps.py enforces
+               the caps).
 --eslint DIR   runs `npx eslint` in DIR and prints a COMPLEXITY_CAPS object
                for eslint.config.js (see templates/eslint-complexity.js).
 
@@ -81,8 +83,9 @@ def python_report(root: Path, limit: int) -> str:
     over = sorted((r for r in parse_ruff(output, root) if r[3] > limit), key=lambda r: -r[3])
     lines = [f"# Python ({root}): {len(over)} function(s) over {limit}"]
     if over:
-        lines.append("# Add `# noqa: C901` to the def line of each, until it is refactored:")
-        lines += [f"#   {file}:{line}  {name}  ({score})" for file, line, name, score in over]
+        lines.append("# Put the marker shown on the def line of each, until it is refactored:")
+        lines += [f"#   {file}:{line}  {name}  # noqa: C901  complexity-cap: {score}"
+                  for file, line, name, score in over]
     lines += ["", "[tool.ruff.lint.mccabe]", f"max-complexity = {limit}"]
     return "\n".join(lines)
 

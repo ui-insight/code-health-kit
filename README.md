@@ -27,9 +27,11 @@ portfolio site as summary numbers.
 |---|---|
 | `actions/manifest` | CI step: checks `.code-health.toml` is valid. |
 | `actions/coverage` | CI step: enforces a coverage floor and uploads a normalized coverage summary as an artifact. |
+| `actions/complexity-caps` | CI step: fails when a Python function exempted with `# noqa: C901` goes over its `complexity-cap:`, has no cap, or no longer needs the exemption. |
 | `actions/secret-scan` | CI step: scans git history for committed credentials with a pinned, checksum-verified gitleaks. |
 | `templates/` | Starting configs to copy: the manifest, the Ruff complexity block and the ESLint per-file caps pattern. |
 | `scripts/bootstrap_caps.py` | Measures an existing project and prints the caps it needs to adopt the complexity limit. |
+| `scripts/check_complexity_caps.py` | The check behind `actions/complexity-caps`; runs locally too. |
 | `docs/manifest.md` | The manifest specification. |
 
 The CI steps are composite actions, so they slot into a project's existing jobs
@@ -53,8 +55,9 @@ project, then paste what it prints into `pyproject.toml` and
 python3 path/to/code-health-kit/scripts/bootstrap_caps.py --python backend --eslint frontend
 ```
 
-Python functions over the limit get `# noqa: C901`; TypeScript files over the
-limit get a per-file cap at today's score.
+Python functions over the limit get `# noqa: C901  complexity-cap: N` on their
+def line, and TypeScript files over the limit get a per-file cap. Either way the
+cap is today's score.
 
 **3. Add the CI steps.** Put the manifest and secret-scan steps in any job, and
 the coverage step after each test run:
@@ -71,7 +74,10 @@ jobs:
       - uses: ui-insight/code-health-kit/actions/secret-scan@v1
 
   backend:
-    # ...existing setup and install steps...
+    # ...existing setup and install steps, including the project's own Ruff...
+      - uses: ui-insight/code-health-kit/actions/complexity-caps@v1
+        with:
+          working-directory: backend
       - run: pytest --cov=app --cov-report=xml
       - uses: ui-insight/code-health-kit/actions/coverage@v1
         with:
@@ -99,10 +105,10 @@ installed.
 - When a refactor brings a file under its cap, lower the cap. Delete it once it
   reaches the default. Run `bootstrap_caps.py` again to find caps that are
   higher than they need to be.
-- Remove a `# noqa: C901` marker once its function is under the limit. A
-  marker removes the limit entirely, so an exempted Python function can keep
-  growing. Re-run `bootstrap_caps.py` from time to time, which ignores the
-  markers and shows each exempted function's current score.
+- Python works the same way, through `complexity-cap:` on each `# noqa: C901`
+  marker. The complexity-caps step fails when a function goes over its cap or
+  has a marker without one. It leaves a note when a cap can be lowered, and it
+  fails once a function is back within the limit, so its marker gets removed.
 - Raise a coverage `min` after adding tests.
 
 ## Versions
