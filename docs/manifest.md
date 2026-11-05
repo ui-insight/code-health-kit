@@ -39,6 +39,15 @@ For each component, the collector:
 The collector also skips dependency and build directories (`node_modules`,
 `.venv`, `dist`, `build`, `.git`) everywhere, so you don't need to list them.
 
+The collector currently measures `python`, `typescript` and `javascript`.
+A component in another accepted language is recorded as unsupported, with a
+file count but no measurements, so it never looks like an empty component.
+
+The collector checks the same rules as `check_manifest.py` before measuring.
+A manifest that fails them is recorded as invalid, with no measurements,
+rather than measured by paths that no longer exist. Keeping the manifest step
+in CI catches this before the collector does.
+
 ## Versioning
 
 A breaking change to these rules gets a new `schema` number. The collector will
