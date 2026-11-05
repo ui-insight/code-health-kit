@@ -57,6 +57,8 @@ def test_find_markers_reads_caps_and_combined_noqa(tmp_path):
         "def c():  # noqa: C9010\n"
         "    pass\n"
         "x = 1  # complexity-cap: 5\n"
+        "y = '# noqa: C901  complexity-cap: 9'\n"
+        '"""Docs quote `# noqa: C901` too."""\n'
     )
     assert find_markers(tmp_path, ["app.py"]) == [Marker("app.py", 1, 48), Marker("app.py", 3, None)]
 

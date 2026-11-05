@@ -29,6 +29,7 @@ import os
 import re
 import subprocess
 import sys
+import tokenize
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,13 +59,18 @@ def find_markers(root: Path, files: list[str]) -> list[Marker]:
     """Every `noqa: C901` comment in the given files, with its cap if it has one."""
     markers = []
     for name in files:
-        text = (root / name).read_text(encoding="utf-8", errors="replace")
-        for number, line in enumerate(text.splitlines(), start=1):
-            match = MARKER.search(line)
-            if not match:
-                continue
-            cap = CAP.search(match["rest"])
-            markers.append(Marker(name, number, int(cap["cap"]) if cap else None))
+        # Only real comments count: a marker quoted in a string or docstring exempts nothing.
+        with open(root / name, encoding="utf-8", errors="replace") as handle:
+            try:
+                comments = [(t.start[0], t.string) for t in tokenize.generate_tokens(handle.readline)
+                            if t.type == tokenize.COMMENT]
+            except (tokenize.TokenError, SyntaxError):
+                continue  # Ruff reports files it can't parse
+        for number, comment in comments:
+            match = MARKER.search(comment)
+            if match:
+                cap = CAP.search(match["rest"])
+                markers.append(Marker(name, number, int(cap["cap"]) if cap else None))
     return markers
 
 
