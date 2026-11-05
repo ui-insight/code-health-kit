@@ -1,0 +1,27 @@
+# .code-health.toml: tells the independent collector what this repository
+# contains. Copy to the repository root and edit. Specification: docs/manifest.md
+# in ui-insight/code-health-kit.
+
+schema = 1
+
+# The project's slug on the IIDS portfolio site (lib/portfolio.ts in AISPEG).
+project = "example-project"
+
+# One table per separately built part of the repository.
+[[component]]
+name = "backend"
+language = "python"          # python, typescript, javascript, r, sql, shell
+source = ["backend/app"]     # authored code: directories or globs
+tests = ["backend/tests"]    # test code; may overlap source and is counted as tests
+
+[[component]]
+name = "frontend"
+language = "typescript"
+source = ["frontend/src"]
+tests = ["frontend/src/**/*.test.ts", "frontend/src/**/*.test.tsx"]
+
+# Code inside the source paths that this project did not write by hand.
+# Every entry must match something. Delete kinds you don't need.
+[exclude]
+generated = ["backend/app/generated"]
+vendored = []

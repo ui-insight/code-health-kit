@@ -1,0 +1,55 @@
+name: Code health coverage
+description: >
+  Enforce a line-coverage floor and publish a normalized coverage summary as an
+  artifact for the independent collector. Run it after the step that writes the
+  coverage report.
+inputs:
+  component:
+    description: Component name, matching a [[component]] in .code-health.toml.
+    required: true
+  report:
+    description: Path to a Cobertura XML or Istanbul json-summary coverage report.
+    required: true
+  format:
+    description: auto, cobertura or istanbul-summary.
+    default: auto
+  min:
+    description: Fail when line coverage is below this percent. Raise it as coverage improves.
+    default: "0"
+  retention-days:
+    description: How long GitHub keeps the artifact.
+    default: "90"
+outputs:
+  line-percent:
+    description: Line coverage percent.
+    value: ${{ steps.summary.outputs.line-percent }}
+runs:
+  using: composite
+  steps:
+    - name: Summarize coverage
+      id: summary
+      shell: bash
+      env:
+        COMPONENT: ${{ inputs.component }}
+        REPORT: ${{ inputs.report }}
+        FORMAT: ${{ inputs.format }}
+        MIN: ${{ inputs.min }}
+        OUT: ${{ runner.temp }}/code-health-coverage
+      run: |
+        status=0
+        python3 "$GITHUB_ACTION_PATH/../../scripts/coverage_summary.py" \
+          --component "$COMPONENT" --report "$REPORT" --format "$FORMAT" --min "$MIN" --out "$OUT" || status=$?
+        summary="$OUT/code-health-coverage-$COMPONENT.json"
+        if [ -f "$summary" ]; then
+          cp "$REPORT" "$OUT/"
+          echo "line-percent=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["line_percent"])' "$summary")" >> "$GITHUB_OUTPUT"
+        fi
+        exit $status
+    # Publish even when the floor fails, so the collector still sees the measurement.
+    - name: Upload coverage summary
+      if: ${{ !cancelled() && steps.summary.outputs.line-percent != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: code-health-coverage-${{ inputs.component }}
+        path: ${{ runner.temp }}/code-health-coverage
+        retention-days: ${{ inputs.retention-days }}

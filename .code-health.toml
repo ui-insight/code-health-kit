@@ -1,0 +1,9 @@
+# This repository measured with its own kit.
+schema = 1
+project = "code-health-kit"
+
+[[component]]
+name = "scripts"
+language = "python"
+source = ["scripts"]
+tests = ["tests"]

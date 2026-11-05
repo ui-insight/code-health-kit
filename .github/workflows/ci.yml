@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests and self-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest pytest-cov ruff
+      - run: ruff check .
+      - run: pytest --cov=scripts --cov-report=xml
+      # The kit's own actions, used on this repository.
+      - uses: ./actions/manifest
+      - uses: ./actions/secret-scan
+      - uses: ./actions/coverage
+        with:
+          component: scripts
+          report: coverage.xml
+          min: 70
